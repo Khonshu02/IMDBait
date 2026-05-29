@@ -127,3 +127,44 @@ def chat(user_message):
         })
 
         return ai_message
+
+
+def chat_stream(user_message):
+    """
+    Streaming version of chat() — yields chunks for live display.
+    """
+    global conversation_history
+
+    is_valid, error = validate_input(user_message)
+    if not is_valid:
+        yield error
+        return
+
+    conversation_history.append({
+        "role": "user",
+        "content": user_message
+    })
+
+    try:
+        stream = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=conversation_history,
+            stream=True  # enables streaming
+        )
+
+        full_response = ""
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                full_response += delta
+                yield delta  # yield each chunk as it arrives
+
+        # Save complete response to history
+        conversation_history.append({
+            "role": "assistant",
+            "content": full_response
+        })
+
+    except Exception as e:
+        conversation_history.pop()
+        yield f"Connection issue. Try again. (Error: {str(e)})"
